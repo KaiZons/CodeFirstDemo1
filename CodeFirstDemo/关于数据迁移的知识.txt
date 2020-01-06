@@ -1,0 +1,45 @@
+1.数据迁移：
+为什么要使用数据迁移，在使用EF的CodFirst时，如果模型发生了变化，就会删除数据库，
+（是否会重建，这个跟初始化方法SetInitializer的参数有关，
+当为DropCreateDatabaseIfModelChanges时，每次更改模型都会重建数据库)，
+可参看：https://www.cnblogs.com/happyframework///archive/2013/03/04/2942578.html）
+根据模型重建数据库，这样的情况下，数据库中原先的数据会丢失，
+如果使用数据迁移，则会在原数据库中修改，数据不会丢失，数据库的升级也需要数据迁移
+
+
+2.生成迁移配置文件的命令：参见
+https://www.cnblogs.com/heifengwll/archive/2013/12/13/3473264.html   //命令注意点
+https://www.cnblogs.com/libingql/p/3330880.html                      //基本操作
+https://www.cnblogs.com/icyJ/p/migration.html                        //其他各种操作(较清晰)
+https://www.cnblogs.com/panchunting/p/entity-framework-code-first-migrations.html //介绍回滚至空白数据库
+
+3.本项目中的一些命令：
+打开程序包管理器控制台Tools->Nuget Package Manager->Package Manager Console 
+//(1)打开迁移，会在-ProjectName命令中指定的项目下创建Migrations文件夹，并生成Configuration.cs文件
+PM> Enable-Migrations -ContextTypeName "Model.DataBaseContext" -ProjectName "Model" -StartUpProjectName "CodeFirstDemo" -ConnectionStringName "conn" -EnableAutomaticMigrations
+
+//(2)增加迁移节点：在(1)的基础上输入该命令，会自动生成一个名称由-Name指定的类，该类记录了在上次迁移基础上发生的修改
+//该类包含两个方法：Up()方法用于升级升级；Down()方法用于回滚,可以手动修改该方法，用来自定义更新
+PM> Add-Migration -Name "InitialCreate" -ProjectName "Model" -StartUpProjectName "CodeFirstDemo" -ConnectionStringName "conn"
+
+//(3)将修改升级到数据库，执行完后，数据库中也会响应相关修改 -Verbose：会生成sql语句
+PM> Update-Database -Verbose -ProjectName "Model" -StartUpProjectName "CodeFirstDemo" -ConnectionStringName "conn"
+特殊操作：
+//升级到指定版本
+PM> Update-Database -TargetMigration:"IntialCreate" -ProjectName "Model" -StartUpProjectName "CodeFirstDemo" -ConnectionStringName "conn"
+//还原成空白数据库
+PM> Update-Database -Force –TargetMigration: $InitialDatabase -ProjectName "Model" -StartUpProjectName "CodeFirstDemo" -ConnectionStringName "conn"
+4.在3中，是根据实体类的修改做出相应的迁移。有些数据表修改是无法通过实体类的修改来生成的，比如给某个字段设置默认值；对于这种情况，我们可以通过3.(1)(2)
+中的命令生成一个空的迁移节点，其中Up()方法和Down()方法的方法体都是空。然后我们可以再Up方法中添加相应的语句，然后执行3.(3)中的命令。例如，设置字段默认值，可以写成
+	public partial class InitialCreate3 : DbMigration
+    {
+        public override void Up()
+        {
+            AlterColumn("dbo.Users", "TempProperty2", c => c.String(defaultValue: "默认值",maxLength: 50));
+        }
+        
+        public override void Down()
+        {
+        }
+    }
+
